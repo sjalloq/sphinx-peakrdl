@@ -12,6 +12,7 @@ from docutils.parsers.rst import directives
 from docutils.statemachine import StringList
 
 from systemrdl.node import Node, RegNode, AddressableNode, SignalNode, RootNode
+from systemrdl.rdltypes import UserEnum
 from systemrdl.rdltypes.references import PropertyReference
 from systemrdl.source_ref import FileSourceRef, DetailedFileSourceRef
 
@@ -214,6 +215,17 @@ class RDLDocNodeDirective(SphinxDirective):
         return doc_nodes
 
 
+    def _build_enum_table(self, enum_cls: type) -> nodes.table:
+        """Build a table of enum members showing value, name, and description."""
+        table = Table(["Value", "Name", "Description"])
+        for member in enum_cls:
+            table.add_row([
+                f"{member.value:#x}",
+                member.name,
+                member.rdl_desc or "-",
+            ])
+        return table.as_node()
+
     def _build_wavedrom_node(self, rdl_node: RegNode) -> nodes.container:
         """Build a WaveDrom bitfield diagram via nested RST parsing."""
         wavedrom_dict = register_to_wavedrom(rdl_node)
@@ -247,6 +259,9 @@ class RDLDocNodeDirective(SphinxDirective):
             dl_def = nodes.definition()
             dl_def_p = self.get_rdl_desc(field)
             dl_def.append(dl_def_p)
+            encode = field.get_property("encode")
+            if encode and issubclass(encode, UserEnum):
+                dl_def.append(self._build_enum_table(encode))
 
             dli.append(dl_term)
             dli.append(dl_def)
@@ -265,6 +280,9 @@ class RDLDocNodeDirective(SphinxDirective):
             section = nodes.section(ids=[section_id])
             section += nodes.title(text=field.inst_name)
             section += self.get_rdl_desc(field)
+            encode = field.get_property("encode")
+            if encode and issubclass(encode, UserEnum):
+                section += self._build_enum_table(encode)
             sections.append(section)
         return sections
 
@@ -278,8 +296,16 @@ class RDLDocNodeDirective(SphinxDirective):
         # WaveDrom bitfield diagram
         wavedrom_node = self._build_wavedrom_node(rdl_node)
 
+        # Check if any field uses an enum encoding
+        has_enums = any(
+            field.get_property("encode") for field in rdl_node.fields()
+        )
+
         # Field Table
-        table = Table(["Bits", "Identifier", "Access", "Reset", "Name"])
+        headings = ["Bits", "Identifier", "Access", "Reset", "Name"]
+        if has_enums:
+            headings.append("Encode")
+        table = Table(headings)
         for field in reversed(rdl_node.fields()):
             # Is actual field
             if field.width == 1:
@@ -307,13 +333,19 @@ class RDLDocNodeDirective(SphinxDirective):
             else:
                 reset = self.get_rdl_xref(reset_value)
 
-            table.add_row([
+            row = [
                 bitrange,
                 field.inst_name,
                 access,
                 reset,
                 field.get_property("name", default="-"),
-            ])
+            ]
+            if has_enums:
+                encode = field.get_property("encode")
+                encode_name = encode.type_name if encode and issubclass(encode, UserEnum) else "-"
+                row.append(encode_name)
+
+            table.add_row(row)
 
         # Field descriptions
         if self.config.peakrdl_doc_field_sections:
