@@ -252,7 +252,10 @@ class RDLDocNodeDirective(SphinxDirective):
             if not desc:
                 continue
 
+            field_ref_id = field.get_path(array_suffix="", empty_array_suffix="")
+
             dli = nodes.definition_list_item()
+            dli["ids"] = [field_ref_id]
             def_list.append(dli)
 
             dl_term = nodes.term(text=field.inst_name)
@@ -265,6 +268,8 @@ class RDLDocNodeDirective(SphinxDirective):
 
             dli.append(dl_term)
             dli.append(dl_def)
+
+            self.domain.data["rdl_docnodes"][field_ref_id] = self.env.docname
         return [def_list]
 
     def _build_field_sections(self, rdl_node: RegNode) -> list[nodes.Element]:
@@ -275,15 +280,16 @@ class RDLDocNodeDirective(SphinxDirective):
             if not desc:
                 continue
 
-            path = field.get_path(array_suffix="", empty_array_suffix="")
-            section_id = nodes.make_id(path)
-            section = nodes.section(ids=[section_id])
+            field_ref_id = field.get_path(array_suffix="", empty_array_suffix="")
+            section = nodes.section(ids=[field_ref_id])
             section += nodes.title(text=field.inst_name)
             section += self.get_rdl_desc(field)
             encode = field.get_property("encode")
             if encode and issubclass(encode, UserEnum):
                 section += self._build_enum_table(encode)
             sections.append(section)
+
+            self.domain.data["rdl_docnodes"][field_ref_id] = self.env.docname
         return sections
 
     def make_rdl_reg_doc(self, rdl_node: RegNode) -> Sequence[nodes.Element]:
