@@ -22,6 +22,9 @@ def compile_input_callback(app: "Sphinx", env: "BuildEnvironment", docnames: Lis
     """
     rdlc = RDLCompiler()
 
+    for udp_cls in app.config.peakrdl_udps:
+        rdlc.register_udp(udp_cls, soft=False)
+
     files = app.config.peakrdl_input_files
     if not files:
         return
