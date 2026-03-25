@@ -33,6 +33,9 @@ def setup_config(app: "Sphinx") -> None:
     # Inline doc settings
     app.add_config_value("peakrdl_doc_wrap_section", True, "env", [bool])
 
+    # Support UDPs
+    app.add_config_value("peakrdl_udps", [], "env", [list])
+
 
 def elaborate_config_callback(app: "Sphinx", cfg: "Config") -> None:
     # Load PeakRDL configuration
